@@ -1,4 +1,4 @@
-#GOPREP: AI-Powered Disaster Preparedness Platform
+# GOPREP: AI-Powered Disaster Preparedness Platform
 
 DIZ-AI is an intelligent emergency preparedness platform that combines the power of AI with location-specific data to create personalized disaster readiness plans. Our mission is to make disaster preparedness accessible, personalized, and actionable for everyone.
 
