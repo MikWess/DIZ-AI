@@ -1,211 +1,319 @@
-import { NextResponse } from 'next/server';
-import Replicate from 'replicate';
+import axios from 'axios';
 
-const WOLFRAM_APP_ID = process.env.WOLFRAM_APP_ID;
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
+interface GeocodingResult {
+  lat: number;
+  lng: number;
+  formatted_address: string;
+}
 
-async function queryWolfram(query: string) {
-  const url = `http://api.wolframalpha.com/v2/query?input=${encodeURIComponent(query)}&format=plaintext&output=JSON&appid=${WOLFRAM_APP_ID}`;
-  const response = await fetch(url);
-  return response.json();
+interface WeatherData {
+  current: {
+    temperature: number;
+    feels_like: number;
+    humidity: number;
+    wind_speed: number;
+    conditions: string;
+  };
+  alerts: Array<{
+    event: string;
+    description: string;
+    start: number;
+    end: number;
+  }>;
+  daily_forecast: Array<{
+    date: string;
+    temperature: {
+      min: number;
+      max: number;
+    };
+    conditions: string;
+    precipitation_probability: number;
+  }>;
+  hourly_forecast: Array<{
+    time: string;
+    temperature: number;
+    conditions: string;
+    precipitation_probability: number;
+  }>;
+}
+
+async function getGeocodingData(location: string): Promise<GeocodingResult> {
+  try {
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(location)}&key=${process.env.OPENCAGE_API_KEY}`;
+    const response = await axios.get(url);
+    
+    if (response.data.results && response.data.results.length > 0) {
+      const result = response.data.results[0];
+      return {
+        lat: result.geometry.lat,
+        lng: result.geometry.lng,
+        formatted_address: result.formatted
+      };
+    }
+    throw new Error('Location not found');
+  } catch (err) {
+    console.error("Error in geocoding:", err);
+    throw new Error('Failed to geocode location');
+  }
+}
+
+async function getWeatherData(lat: number, lng: number): Promise<WeatherData> {
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${process.env.OPENWEATHER_API_KEY}&units=imperial`;
+    const response = await axios.get(url);
+    
+    const current = {
+      temperature: response.data.main.temp,
+      feels_like: response.data.main.feels_like,
+      humidity: response.data.main.humidity,
+      wind_speed: response.data.wind.speed,
+      conditions: response.data.weather[0].description
+    };
+
+    // Get 5-day forecast
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${process.env.OPENWEATHER_API_KEY}&units=imperial`;
+    const forecastResponse = await axios.get(forecastUrl);
+    
+    const daily_forecast = forecastResponse.data.list
+      .filter((item: any, index: number) => index % 8 === 0) // Get one reading per day
+      .slice(0, 5)
+      .map((day: any) => ({
+        date: new Date(day.dt * 1000).toLocaleDateString(),
+        temperature: {
+          min: day.main.temp_min,
+          max: day.main.temp_max
+        },
+        conditions: day.weather[0].description,
+        precipitation_probability: day.pop * 100 || 0
+      }));
+
+    const hourly_forecast = forecastResponse.data.list
+      .slice(0, 8) // Next 24 hours (3-hour intervals)
+      .map((hour: any) => ({
+        time: new Date(hour.dt * 1000).toLocaleTimeString(),
+        temperature: hour.main.temp,
+        conditions: hour.weather[0].description,
+        precipitation_probability: hour.pop * 100 || 0
+      }));
+
+    return {
+      current,
+      alerts: [], // Basic API doesn't include alerts
+      daily_forecast,
+      hourly_forecast
+    };
+  } catch (err) {
+    console.error("Error fetching weather data:", err);
+    return {
+      current: {
+        temperature: 0,
+        feels_like: 0,
+        humidity: 0,
+        wind_speed: 0,
+        conditions: 'Weather data not available'
+      },
+      alerts: [],
+      daily_forecast: [],
+      hourly_forecast: []
+    };
+  }
+}
+
+async function getElevationData(lat: number, lng: number): Promise<string> {
+  try {
+    const url = `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`;
+    const response = await axios.get(url);
+    
+    if (response.data.results && response.data.results.length > 0) {
+      return `${Math.round(response.data.results[0].elevation)} meters above sea level`;
+    }
+    return 'Elevation data not available';
+  } catch (err) {
+    console.error("Error fetching elevation data:", err);
+    return 'Elevation data not available';
+  }
+}
+
+function generatePlaceholderPlan() {
+  return {
+    primary_risks: [
+      {
+        title: "[Primary Risk 1]",
+        description: "[Risk Description 1]",
+        severity: "high"
+      },
+      {
+        title: "[Primary Risk 2]",
+        description: "[Risk Description 2]",
+        severity: "medium"
+      },
+      {
+        title: "[Primary Risk 3]",
+        description: "[Risk Description 3]",
+        severity: "low"
+      }
+    ],
+    emergency_supplies: [
+      {
+        category: "Essential",
+        items: [
+          "Water (1 gallon per person per day)",
+          "Non-perishable food",
+          "First aid kit",
+          "Flashlight and batteries",
+          "Emergency radio"
+        ]
+      },
+      {
+        category: "Documents",
+        items: [
+          "ID and passports",
+          "Insurance papers",
+          "Medical records",
+          "Emergency contacts list",
+          "Bank documents"
+        ]
+      },
+      {
+        category: "Specific Needs",
+        items: [
+          "Prescription medications",
+          "Pet supplies",
+          "Special medical equipment",
+          "Baby supplies",
+          "Mobility aids"
+        ]
+      }
+    ],
+    evacuation_plan: {
+      routes: [
+        {
+          name: "[Primary Route]",
+          description: "[Route Description]",
+          destinations: ["[Safe Location 1]", "[Safe Location 2]"]
+        },
+        {
+          name: "[Secondary Route]",
+          description: "[Route Description]",
+          destinations: ["[Alternative Location 1]", "[Alternative Location 2]"]
+        }
+      ],
+      meeting_points: [
+        {
+          name: "[Primary Meeting Point]",
+          address: "[Address]",
+          description: "[Description]"
+        },
+        {
+          name: "[Secondary Meeting Point]",
+          address: "[Address]",
+          description: "[Description]"
+        }
+      ]
+    },
+    action_steps: {
+      immediate: [
+        "Gather emergency supplies",
+        "Review evacuation routes",
+        "Check weather updates"
+      ],
+      within_24_hours: [
+        "Contact family members",
+        "Secure important documents",
+        "Fill vehicle with gas"
+      ],
+      within_72_hours: [
+        "Stock up on supplies",
+        "Prepare home",
+        "Make long-term plans"
+      ]
+    },
+    special_considerations: {
+      household_specific: [
+        "[Household Specific Consideration 1]",
+        "[Household Specific Consideration 2]",
+        "[Household Specific Consideration 3]"
+      ],
+      weather_related: [
+        "[Weather Consideration 1]",
+        "[Weather Consideration 2]",
+        "[Weather Consideration 3]"
+      ],
+      seasonal: [
+        "[Seasonal Consideration 1]",
+        "[Seasonal Consideration 2]",
+        "[Seasonal Consideration 3]"
+      ]
+    },
+    local_resources: {
+      emergency_services: [
+        {
+          name: "[Emergency Service 1]",
+          contact: "[Contact Info]",
+          description: "[Description]"
+        },
+        {
+          name: "[Emergency Service 2]",
+          contact: "[Contact Info]",
+          description: "[Description]"
+        }
+      ],
+      shelters: [
+        {
+          name: "[Shelter 1]",
+          address: "[Address]",
+          capacity: "[Capacity]"
+        },
+        {
+          name: "[Shelter 2]",
+          address: "[Address]",
+          capacity: "[Capacity]"
+        }
+      ]
+    }
+  };
 }
 
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
-    const { location, householdSize, housingType, specialNeeds, pets, mobilityIssues } = data;
-
-    // Get Wolfram data for environmental factors
-    const wolframData = await getWolframData(location);
-
-    // Generate personalized plan using Llama 2
-    const prompt = `You are an emergency preparedness expert. Create a detailed, personalized emergency preparedness plan based on this information:
-
-Location: ${location}
-Environmental Data: ${JSON.stringify(wolframData)}
-Household Size: ${householdSize}
-Housing Type: ${housingType}
-Special Needs: ${specialNeeds ? 'Yes' : 'No'}
-Pets: ${pets ? 'Yes' : 'No'}
-Mobility Issues: ${mobilityIssues ? 'Yes' : 'No'}
-
-Focus on:
-1. Location-specific risks and preparations
-2. Specific needs of the household
-3. Seasonal considerations
-4. Evacuation planning
-5. Emergency supplies
-6. Communication plans
-
-Format your response as a JSON object with this exact structure (no explanation, just the JSON):
-{
-  "risks": {
-    "riskType1": "level",
-    "riskType2": "level"
-  },
-  "recommendations": [
-    {
-      "category": "category name",
-      "items": ["recommendation 1", "recommendation 2"]
-    }
-  ]
-}`;
-
-    const output = await replicate.run(
-      "meta/llama-2-70b-chat:02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3",
-      {
-        input: {
-          prompt,
-          temperature: 0.1, // Low temperature for more focused output
-          max_tokens: 1500,
-          top_p: 0.9
-        }
-      }
-    );
-
-    // Parse the response and ensure it's valid JSON
-    let plan;
-    try {
-      // Find the JSON object in the response
-      const jsonStr = (output as string[]).join('').match(/\{[\s\S]*\}/)?.[0] || '{}';
-      plan = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error('Error parsing Llama response:', e);
-      plan = {
-        risks: {},
-        recommendations: []
-      };
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...plan,
-        locationData: wolframData
-      }
-    });
-
-  } catch (error) {
-    console.error('Error in analyze route:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to analyze data' },
-      { status: 500 }
-    );
-  }
-}
-
-async function getWolframData(location: string) {
-  const queries = [
-    `elevation ${location}`,
-    `average temperature ${location}`,
-    `average annual rainfall ${location}`,
-    `population density ${location}`
-  ];
-
-  const responses = await Promise.all(
-    queries.map(query => queryWolfram(query))
-  );
-
-  return {
-    elevation: processWolframResponse(responses[0], 'elevation'),
-    temperature: processWolframResponse(responses[1], 'temperature'),
-    rainfall: processWolframResponse(responses[2], 'rainfall'),
-    populationDensity: processWolframResponse(responses[3], 'population')
-  };
-}
-
-function processWolframResponse(response: any, type: string) {
-  try {
-    // Extract relevant data from Wolfram Alpha response
-    const pods = response.queryresult?.pods || [];
+    const body = await req.json();
+    const { location, householdSize, housingType, specialNeeds, pets, mobilityIssues } = body;
     
-    switch(type) {
-      case 'disasters':
-        return extractDisasterInfo(pods);
-      case 'rainfall':
-        return extractNumericValue(pods, 'rainfall');
-      case 'earthquake':
-        return extractRiskLevel(pods);
-      case 'elevation':
-        return extractNumericValue(pods, 'elevation');
-      case 'temperature':
-        return extractTemperatureData(pods);
-      case 'population':
-        return extractNumericValue(pods, 'density');
-      default:
-        return null;
+    if (!location) {
+      return Response.json({ error: 'Location is required' }, { status: 400 });
     }
-  } catch (error) {
-    console.error(`Error processing ${type} data:`, error);
-    return null;
+
+    // Get all data in parallel
+    const geoData = await getGeocodingData(location);
+    const [elevation, weather] = await Promise.all([
+      getElevationData(geoData.lat, geoData.lng),
+      getWeatherData(geoData.lat, geoData.lng)
+    ]);
+
+    const locationData = {
+      formatted_address: geoData.formatted_address,
+      coordinates: {
+        lat: geoData.lat,
+        lng: geoData.lng
+      },
+      elevation
+    };
+
+    // Generate placeholder emergency plan
+    const emergencyPlan = generatePlaceholderPlan();
+
+    return Response.json({
+      location: locationData,
+      weather,
+      emergency_plan: emergencyPlan
+    });
+  } catch (err) {
+    console.error("Analysis error:", err);
+    return Response.json({ 
+      error: 'Failed to analyze location',
+      details: err instanceof Error ? err.message : 'Unknown error'
+    }, { 
+      status: 500 
+    });
   }
-}
-
-function extractDisasterInfo(pods: any[]) {
-  // Look for pods with disaster-related information
-  const relevantPod = pods.find(pod => 
-    pod.title.toLowerCase().includes('natural disaster') ||
-    pod.title.toLowerCase().includes('weather events')
-  );
-
-  if (!relevantPod) return [];
-
-  // Extract text and look for disaster keywords
-  const text = relevantPod.subpods[0]?.plaintext || '';
-  const disasters = [
-    'flood', 'hurricane', 'tornado', 'earthquake', 'wildfire',
-    'drought', 'landslide', 'tsunami', 'volcanic'
-  ];
-
-  return disasters.filter(disaster => 
-    text.toLowerCase().includes(disaster)
-  );
-}
-
-function extractNumericValue(pods: any[], type: string) {
-  const relevantPod = pods.find(pod => 
-    pod.title.toLowerCase().includes(type)
-  );
-
-  if (!relevantPod) return null;
-
-  const text = relevantPod.subpods[0]?.plaintext || '';
-  const number = text.match(/\d+(\.\d+)?/);
-  return number ? parseFloat(number[0]) : null;
-}
-
-function extractRiskLevel(pods: any[]) {
-  const relevantPod = pods.find(pod => 
-    pod.title.toLowerCase().includes('risk') ||
-    pod.title.toLowerCase().includes('probability')
-  );
-
-  if (!relevantPod) return 'unknown';
-
-  const text = relevantPod.subpods[0]?.plaintext || '';
-  if (text.toLowerCase().includes('high')) return 'high';
-  if (text.toLowerCase().includes('moderate')) return 'moderate';
-  if (text.toLowerCase().includes('low')) return 'low';
-  return 'unknown';
-}
-
-function extractTemperatureData(pods: any[]) {
-  const relevantPod = pods.find(pod => 
-    pod.title.toLowerCase().includes('temperature')
-  );
-
-  if (!relevantPod) return null;
-
-  const text = relevantPod.subpods[0]?.plaintext || '';
-  const numbers = text.match(/-?\d+(\.\d+)?/g);
-  
-  return numbers ? {
-    average: parseFloat(numbers[0]),
-    range: numbers.length > 1 ? {
-      min: parseFloat(numbers[1]),
-      max: parseFloat(numbers[2])
-    } : null
-  } : null;
 } 

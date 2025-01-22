@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 export default function AnalyzePage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     location: '',
     householdSize: '',
@@ -30,12 +32,33 @@ export default function AnalyzePage() {
       return;
     }
     
-    // Here we'll add the API call to Wolfram Alpha
+    setLoading(true);
+    setError(null);
+    
     try {
-      // TODO: Add Wolfram API integration
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze location');
+      }
+
+      const result = await response.json();
+      
+      // Store the result in localStorage for the results page
+      localStorage.setItem('analysisResult', JSON.stringify(result));
+      
       router.push('/analysis-result');
     } catch (error) {
       console.error('Error analyzing data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to analyze location');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -175,11 +198,20 @@ export default function AnalyzePage() {
               )}
               <button
                 type="submit"
-                className="bg-[#004D40] text-white px-8 py-3 rounded-full font-semibold hover:bg-opacity-90 transition-all"
+                disabled={loading}
+                className={`bg-[#004D40] text-white px-8 py-3 rounded-full font-semibold transition-all ${
+                  loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'
+                }`}
               >
-                {step === 3 ? 'Generate Plan' : 'Next'}
+                {loading ? 'Analyzing...' : step === 3 ? 'Generate Plan' : 'Next'}
               </button>
             </div>
+
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg">
+                {error}
+              </div>
+            )}
           </form>
         </div>
       </div>
