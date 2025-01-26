@@ -5,43 +5,31 @@ import { useRouter } from 'next/navigation';
 
 export default function AnalyzePage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    location: '',
-    householdSize: '',
-    housingType: '',
-    specialNeeds: false,
-    pets: false,
-    mobilityIssues: false,
-  });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (step < 3) {
-      setStep(step + 1);
-      return;
-    }
-    
     setLoading(true);
     setError(null);
-    
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      location: formData.get('location'),
+      householdSize: parseInt(formData.get('householdSize') as string),
+      housingType: formData.get('housingType'),
+      specialNeeds: formData.get('specialNeeds') === 'true',
+      pets: formData.get('pets') === 'true',
+      mobilityIssues: formData.get('mobilityIssues') === 'true'
+    };
+
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -53,167 +41,128 @@ export default function AnalyzePage() {
       // Store the result in localStorage for the results page
       localStorage.setItem('analysisResult', JSON.stringify(result));
       
+      // Navigate to the results page
       router.push('/analysis-result');
-    } catch (error) {
-      console.error('Error analyzing data:', error);
-      setError(error instanceof Error ? error.message : 'Failed to analyze location');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-[#004D40] mb-8">Get Your AI Analysis</h1>
-          
-          {/* Progress Steps */}
-          <div className="flex justify-between mb-8">
-            {[1, 2, 3].map((num) => (
-              <div 
-                key={num}
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  step >= num ? 'bg-[#004D40] text-white' : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {num}
-              </div>
-            ))}
+    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 py-12">
+      <div className="max-w-2xl mx-auto px-4">
+        <h1 className="text-3xl font-bold mb-8 text-emerald-900 text-center">
+          Emergency Preparedness Analysis
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white/60 rounded-lg p-6 shadow-sm">
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              Location
+            </label>
+            <input
+              type="text"
+              name="location"
+              id="location"
+              required
+              placeholder="Enter city, state"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
-            {step === 1 && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-semibold mb-6">Location Information</h2>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Your Location (City, State)
-                  </label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border rounded-md focus:ring-[#004D40] focus:border-[#004D40]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Housing Type
-                  </label>
-                  <select
-                    name="housingType"
-                    value={formData.housingType}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border rounded-md focus:ring-[#004D40] focus:border-[#004D40]"
-                    required
-                  >
-                    <option value="">Select housing type</option>
-                    <option value="house">House</option>
-                    <option value="apartment">Apartment</option>
-                    <option value="mobile">Mobile Home</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-            )}
+          <div>
+            <label htmlFor="householdSize" className="block text-sm font-medium text-gray-700 mb-1">
+              Household Size
+            </label>
+            <input
+              type="number"
+              name="householdSize"
+              id="householdSize"
+              required
+              min="1"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
 
-            {step === 2 && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-semibold mb-6">Household Information</h2>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Number of People in Household
-                  </label>
-                  <input
-                    type="number"
-                    name="householdSize"
-                    value={formData.householdSize}
-                    onChange={handleInputChange}
-                    min="1"
-                    className="w-full px-4 py-2 border rounded-md focus:ring-[#004D40] focus:border-[#004D40]"
-                    required
-                  />
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="pets"
-                      checked={formData.pets}
-                      onChange={handleInputChange}
-                      className="h-4 w-4 text-[#004D40] focus:ring-[#004D40] border-gray-300 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">
-                      Do you have pets?
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
+          <div>
+            <label htmlFor="housingType" className="block text-sm font-medium text-gray-700 mb-1">
+              Housing Type
+            </label>
+            <select
+              name="housingType"
+              id="housingType"
+              required
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option value="">Select housing type</option>
+              <option value="house">House</option>
+              <option value="apartment">Apartment</option>
+              <option value="mobile">Mobile Home</option>
+              <option value="condo">Condominium</option>
+            </select>
+          </div>
 
-            {step === 3 && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-semibold mb-6">Special Considerations</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="specialNeeds"
-                      checked={formData.specialNeeds}
-                      onChange={handleInputChange}
-                      className="h-4 w-4 text-[#004D40] focus:ring-[#004D40] border-gray-300 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">
-                      Does anyone in your household have special medical needs?
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="mobilityIssues"
-                      checked={formData.mobilityIssues}
-                      onChange={handleInputChange}
-                      className="h-4 w-4 text-[#004D40] focus:ring-[#004D40] border-gray-300 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">
-                      Does anyone in your household have mobility issues?
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-8 flex justify-end">
-              {step > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setStep(step - 1)}
-                  className="mr-4 px-6 py-2 text-gray-600 hover:text-gray-900"
-                >
-                  Back
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={loading}
-                className={`bg-[#004D40] text-white px-8 py-3 rounded-full font-semibold transition-all ${
-                  loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-90'
-                }`}
-              >
-                {loading ? 'Analyzing...' : step === 3 ? 'Generate Plan' : 'Next'}
-              </button>
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="specialNeeds"
+                id="specialNeeds"
+                value="true"
+                className="h-4 w-4 text-emerald-500 focus:ring-emerald-500 border-gray-300 rounded"
+              />
+              <label htmlFor="specialNeeds" className="ml-2 text-sm text-gray-700">
+                Special Needs
+              </label>
             </div>
 
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg">
-                {error}
-              </div>
-            )}
-          </form>
-        </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="pets"
+                id="pets"
+                value="true"
+                className="h-4 w-4 text-emerald-500 focus:ring-emerald-500 border-gray-300 rounded"
+              />
+              <label htmlFor="pets" className="ml-2 text-sm text-gray-700">
+                Pets
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="mobilityIssues"
+                id="mobilityIssues"
+                value="true"
+                className="h-4 w-4 text-emerald-500 focus:ring-emerald-500 border-gray-300 rounded"
+              />
+              <label htmlFor="mobilityIssues" className="ml-2 text-sm text-gray-700">
+                Mobility Issues
+              </label>
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 px-6 rounded-lg text-white font-medium transition-all
+              ${loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-lg'
+              }`}
+          >
+            {loading ? 'Analyzing...' : 'Analyze Location'}
+          </button>
+        </form>
       </div>
     </main>
   );
