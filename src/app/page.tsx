@@ -42,20 +42,24 @@ export default function Home() {
         ))}
         
         <div className="relative z-20 container mx-auto px-4 h-full flex items-center">
-          <div className="max-w-3xl">
-            <h1 className="text-5xl font-bold mb-6 text-white">AI-Powered Disaster Preparedness</h1>
-            <p className="text-xl mb-8 text-white/90">Get a personalized emergency preparedness plan powered by AI, tailored to your location, household, and specific risks.</p>
-            <Link 
-              href="/analyze"
-              className="bg-white text-[#004D40] px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all inline-flex items-center space-x-2"
-            >
-              <span>Get Your AI Analysis</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </Link>
-          </div>
-        </div>
+  <div className="max-w-3xl">
+    <h1 className="text-5xl font-bold mb-6 text-white">
+      Less than 30% of people are prepared for disaster. 
+      <span className="block mt-2">Act.</span>
+    </h1>
+    <p className="text-xl mb-8 text-white/90">Get a personalized emergency preparedness plan powered by AI, tailored to your location, household, and specific risks.</p>
+    <Link 
+      href="/analyze"
+      className="bg-white text-[#004D40] px-8 py-4 rounded-full font-semibold hover:bg-opacity-90 transition-all inline-flex items-center space-x-2"
+    >
+      <span>Get Your AI Analysis</span>
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+      </svg>
+    </Link>
+  </div>
+</div>
+        
       </section>
 
       {/* How It Works Section */}
