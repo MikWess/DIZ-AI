@@ -1,9 +1,13 @@
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
 import Link from "next/link";
 
-export const metadata = {
-  title: 'Emergency Preparedness Guide',
-  description: 'Your comprehensive resource for disaster preparedness and emergency planning.',
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'DIZ-AI | AI-Powered Disaster Preparedness',
+  description: 'Get personalized disaster preparedness plans based on your location and needs using advanced AI analysis.',
 };
 
 export default function RootLayout({
@@ -13,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className={inter.className}>
         {/* Navigation Header */}
         <header className="bg-white border-b">
     <nav className="container mx-auto px-4 py-4">
@@ -21,7 +25,7 @@ export default function RootLayout({
         {/* Left Section with Home and Resources */}
         <div className="flex items-center space-x-6">
           <Link href="/" className="text-xl font-bold text-[#004D40]">
-            DisasterPrep
+            Diz-AI
           </Link>
           <Link href="/resources" className="text-gray-60 hover:text-[#004D40]">
             Resources

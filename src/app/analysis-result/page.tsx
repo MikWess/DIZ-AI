@@ -36,6 +36,17 @@ interface EmergencyContact {
   description: string;
 }
 
+interface Location {
+  city: string;
+  state: string;
+  zipCode: string;
+  formatted_address: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+}
+
 interface AnalysisResult {
   location: {
     city: string;
@@ -88,7 +99,36 @@ interface DisasterResponse {
   contacts: string[];
 }
 
+interface DisasterRisk {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  bgColor: string;
+}
+
+interface WolframData {
+  seismicActivity: number;
+  elevation: number;
+  annualRainfall: number;
+  annualSnowfall: number;
+  distanceToCoast: number;
+  tornadoFrequency: number;
+  emergencyContacts: Array<{
+    name: string;
+    phone: string;
+  }>;
+}
+
+interface WeatherData {
+  temperature: number;
+  humidity: number;
+}
+
 interface EnhancedAnalysisResult extends AnalysisResult {
+  location: Location;
+  wolframData: WolframData;
+  weatherData: WeatherData;
   disasterResponses: Record<string, DisasterResponse>;
   actionPlans: ActionPlan[];
   specializedRecommendations: {
@@ -214,6 +254,47 @@ const EMERGENCY_CONTACTS: EmergencyContact[] = [
   }
 ];
 
+// Update risk level determination
+function getRiskLevel(disaster: DisasterRisk, result: EnhancedAnalysisResult): 'high' | 'medium' | 'low' {
+  const riskFactors: Record<string, number> = {
+    earthquake: result.wolframData?.seismicActivity > 3 ? 5 : 
+               result.wolframData?.seismicActivity > 2 ? 3 : 1,
+    
+    wildfire: (result.weatherData?.temperature > 85 && result.weatherData?.humidity < 30) ? 5 :
+              (result.weatherData?.temperature > 75 && result.weatherData?.humidity < 40) ? 3 : 1,
+    
+    flood: result.wolframData?.elevation < 30 ? 5 :
+           result.wolframData?.elevation < 50 ? 3 : 1,
+    
+    winter: result.weatherData?.temperature < 20 ? 5 :
+            result.weatherData?.temperature < 32 ? 3 : 1,
+    
+    hurricane: result.wolframData?.distanceToCoast < 50 ? 5 :
+               result.wolframData?.distanceToCoast < 100 ? 3 : 1,
+    
+    tornado: result.wolframData?.tornadoFrequency > 3 ? 5 :
+             result.wolframData?.tornadoFrequency > 1 ? 3 : 1,
+    
+    drought: result.wolframData?.annualRainfall < 15 ? 5 :
+             result.wolframData?.annualRainfall < 25 ? 3 : 1,
+    
+    heatwave: result.weatherData?.temperature > 95 ? 5 :
+              result.weatherData?.temperature > 85 ? 3 : 1,
+    
+    tsunami: (result.wolframData?.distanceToCoast < 30 && result.wolframData?.seismicActivity > 2) ? 5 :
+             (result.wolframData?.distanceToCoast < 50 && result.wolframData?.seismicActivity > 1) ? 3 : 1,
+    
+    landslide: (result.wolframData?.elevation > 1000 && result.wolframData?.annualRainfall > 40) ? 5 :
+               (result.wolframData?.elevation > 500 && result.wolframData?.annualRainfall > 30) ? 3 : 1
+  };
+
+  const riskScore = riskFactors[disaster.id] || 0;
+  
+  if (riskScore >= 5) return 'high';
+  if (riskScore >= 3) return 'medium';
+  return 'low';
+}
+
 export default function AnalysisResultPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -222,6 +303,7 @@ export default function AnalysisResultPage() {
   const [activeTab, setActiveTab] = useState('summary');
   const [activePlanPhase, setActivePlanPhase] = useState('before');
   const [selectedDisaster, setSelectedDisaster] = useState<string | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -311,10 +393,10 @@ export default function AnalysisResultPage() {
         {/* Header Section */}
         <div className="flex justify-between items-center mb-4">
           <Link
-            href="/analyze"
-            className="text-emerald-700 hover:text-emerald-900 font-medium"
+            href="/"
+            className="text-2xl font-bold text-emerald-800"
           >
-            ← Back to Survey
+            DIZ-AI
           </Link>
           <div className="flex gap-4">
             <button
@@ -390,34 +472,48 @@ export default function AnalysisResultPage() {
 
         {/* Summary Tab */}
         {activeTab === 'summary' && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Top Risks Section */}
             <div className="bg-white/60 rounded-lg p-6">
-              <h2 className="text-2xl font-semibold mb-6 text-emerald-900">Top Risks for Your Area</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {groupedDisasters.high.slice(0, 3).map((disaster) => (
-                  <div
-                    key={disaster.id}
-                    className={`p-6 rounded-lg ${disaster.bgColor} hover:shadow-lg transition-shadow`}
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <span role="img" aria-label={disaster.title} className="text-2xl">
-                        {disaster.emoji}
-                      </span>
-                      <h3 className="text-lg font-semibold">{disaster.title}</h3>
-                    </div>
-                    <p className="text-gray-700 mb-3">{disaster.description}</p>
-                  </div>
-                ))}
+              <h3 className="text-xl font-semibold text-emerald-900 mb-4">
+                Top Risks for {result.location.city}, {result.location.state}
+              </h3>
+              <div className="space-y-4">
+                {ALL_POSSIBLE_DISASTERS.map(disaster => {
+                  const riskLevel = getRiskLevel(disaster, result);
+                  if (riskLevel === 'high') {
+                    return (
+                      <div key={disaster.id} className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                        <div className="flex items-center gap-2">
+                          <span role="img" aria-label={disaster.title} className="text-2xl">
+                            {disaster.emoji}
+                          </span>
+                          <h4 className="font-medium text-red-800">{disaster.title} - High Risk</h4>
+                        </div>
+                        <p className="text-red-700 mt-2">{disaster.description}</p>
+                        <div className="mt-3 text-sm text-red-600">
+                          Based on: {
+                            disaster.id === 'earthquake' ? `Seismic activity level of ${result.wolframData.seismicActivity}` :
+                            disaster.id === 'wildfire' ? `High temperature (${result.weatherData.temperature}°F) and low humidity (${result.weatherData.humidity}%)` :
+                            disaster.id === 'flood' ? `Low elevation (${result.wolframData.elevation}ft)` :
+                            disaster.id === 'tsunami' ? `Close to coast (${result.wolframData.distanceToCoast}mi)` :
+                            'Local risk factors'
+                          }
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             </div>
 
-            {/* Quick Action Items */}
+            {/* Priority Actions Section */}
             <div className="bg-white/60 rounded-lg p-6">
-              <h2 className="text-2xl font-semibold mb-6 text-emerald-900">Priority Action Items</h2>
+              <h3 className="text-xl font-semibold text-emerald-900 mb-4">Priority Actions</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-emerald-800">Immediate Actions</h3>
+                  <h4 className="font-medium text-emerald-800">Immediate Steps</h4>
                   <ul className="space-y-2">
                     {result.recommendations.immediate.map((action, index) => (
                       <li key={index} className="flex items-start gap-2">
@@ -428,7 +524,7 @@ export default function AnalysisResultPage() {
                   </ul>
                 </div>
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-emerald-800">Critical Supplies</h3>
+                  <h4 className="font-medium text-emerald-800">Critical Supplies</h4>
                   <ul className="space-y-2">
                     {result.customSupplies
                       .filter(cat => cat.priority === 'high')
@@ -445,17 +541,62 @@ export default function AnalysisResultPage() {
               </div>
             </div>
 
-            {/* Emergency Contacts */}
+            {/* Evacuation Routes */}
             <div className="bg-white/60 rounded-lg p-6">
-              <h2 className="text-2xl font-semibold mb-6 text-emerald-900">Emergency Contacts</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {result.emergencyContacts.map((contact, index) => (
+              <h3 className="text-xl font-semibold text-emerald-900 mb-4">Evacuation Information</h3>
+              <div className="space-y-4">
+                {result.evacuationRoutes.map((route, index) => (
                   <div key={index} className="bg-emerald-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-emerald-800">{contact.name}</h3>
-                    <p className="text-emerald-600">{contact.number}</p>
-                    <p className="text-sm text-emerald-600">{contact.description}</p>
+                    <h4 className="font-medium text-emerald-800 mb-2">{route.name}</h4>
+                    <p className="text-emerald-600 mb-2">{route.description}</p>
+                    <div className="text-sm text-emerald-500">
+                      Destinations: {route.destinations.join(', ')}
+                    </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Emergency Contacts */}
+            <div className="bg-white/60 rounded-lg p-6">
+              <h3 className="text-xl font-semibold text-emerald-900 mb-4">
+                Emergency Contacts for {result.location.city}
+              </h3>
+              <div className="space-y-4">
+                {/* Default Emergency Numbers */}
+                <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                  <span className="font-medium text-emerald-800">Emergency Services</span>
+                  <a href="tel:911" className="text-emerald-600 hover:text-emerald-700 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    911
+                  </a>
+                </div>
+                
+                {/* Local Emergency Contacts */}
+                {result.wolframData?.emergencyContacts?.map((contact, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                    <span className="font-medium text-emerald-800">{contact.name}</span>
+                    <a href={`tel:${contact.phone}`} className="text-emerald-600 hover:text-emerald-700 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      {contact.phone}
+                    </a>
+                  </div>
+                ))}
+
+                {/* Additional Important Numbers */}
+                <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                  <span className="font-medium text-emerald-800">FEMA Disaster Assistance</span>
+                  <a href="tel:1-800-621-3362" className="text-emerald-600 hover:text-emerald-700 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    1-800-621-3362
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -523,106 +664,130 @@ export default function AnalysisResultPage() {
           </div>
         )}
 
-        {/* Disaster Types Content */}
+        {/* Disaster Types Tab */}
         {activeTab === 'disaster-types' && (
           <div className="space-y-8">
-            {/* High Risk Disasters */}
-            <div>
-              <h2 className="text-2xl font-semibold mb-6 text-emerald-900">
-                High-Risk Disasters
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {groupedDisasters.high.map((disaster) => (
-                  <div
-                    key={disaster.id}
-                    className={`p-6 rounded-lg ${disaster.bgColor} hover:shadow-lg transition-shadow cursor-pointer`}
-                    onClick={() => setSelectedDisaster(disaster.id)}
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <span role="img" aria-label={disaster.title} className="text-2xl">
-                        {disaster.emoji}
-                      </span>
-                      <h3 className="text-lg font-semibold">{disaster.title}</h3>
-                    </div>
-                    <p className="text-gray-700 mb-3">{disaster.description}</p>
-                    <div>
-                      <h4 className="font-medium mb-2">Preparedness:</h4>
-                      <p className="text-gray-700">{disaster.preparedness}</p>
-                    </div>
-                    <div className="mt-4">
-                      <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                        HIGH RISK
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* High-Risk Disasters */}
+            <div className="space-y-4">
+              <button 
+                onClick={() => setExpandedSection(expandedSection === 'high' ? null : 'high')}
+                className="w-full flex items-center justify-between bg-red-50 p-4 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <h3 className="text-xl font-semibold text-red-900">High-Risk Disasters</h3>
+                <svg 
+                  className={`w-6 h-6 transform transition-transform ${expandedSection === 'high' ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {expandedSection === 'high' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {ALL_POSSIBLE_DISASTERS.map(disaster => {
+                    const riskLevel = getRiskLevel(disaster, result);
+                    if (riskLevel === 'high') {
+                      return (
+                        <div key={disaster.id} className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span role="img" aria-label={disaster.title} className="text-2xl">
+                              {disaster.emoji}
+                            </span>
+                            <h4 className="font-medium text-red-800">{disaster.title}</h4>
+                          </div>
+                          <p className="text-red-700 text-sm mb-3">{disaster.description}</p>
+                          <p className="text-red-600 text-sm">{disaster.preparedness}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Medium Risk Disasters */}
-            <div>
-              <h2 className="text-2xl font-semibold mb-6 text-emerald-900">
-                Medium-Risk Disasters
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {groupedDisasters.medium.map((disaster) => (
-                  <div
-                    key={disaster.id}
-                    className={`p-6 rounded-lg ${disaster.bgColor} hover:shadow-lg transition-shadow cursor-pointer`}
-                    onClick={() => setSelectedDisaster(disaster.id)}
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <span role="img" aria-label={disaster.title} className="text-2xl">
-                        {disaster.emoji}
-                      </span>
-                      <h3 className="text-lg font-semibold">{disaster.title}</h3>
-                    </div>
-                    <p className="text-gray-700 mb-3">{disaster.description}</p>
-                    <div>
-                      <h4 className="font-medium mb-2">Preparedness:</h4>
-                      <p className="text-gray-700">{disaster.preparedness}</p>
-                    </div>
-                    <div className="mt-4">
-                      <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                        MEDIUM RISK
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Medium-Risk Disasters */}
+            <div className="space-y-4">
+              <button 
+                onClick={() => setExpandedSection(expandedSection === 'medium' ? null : 'medium')}
+                className="w-full flex items-center justify-between bg-yellow-50 p-4 rounded-lg hover:bg-yellow-100 transition-colors"
+              >
+                <h3 className="text-xl font-semibold text-yellow-900">Medium-Risk Disasters</h3>
+                <svg 
+                  className={`w-6 h-6 transform transition-transform ${expandedSection === 'medium' ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {expandedSection === 'medium' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {ALL_POSSIBLE_DISASTERS.map(disaster => {
+                    const riskLevel = getRiskLevel(disaster, result);
+                    if (riskLevel === 'medium') {
+                      return (
+                        <div key={disaster.id} className="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span role="img" aria-label={disaster.title} className="text-2xl">
+                              {disaster.emoji}
+                            </span>
+                            <h4 className="font-medium text-yellow-800">{disaster.title}</h4>
+                          </div>
+                          <p className="text-yellow-700 text-sm mb-3">{disaster.description}</p>
+                          <p className="text-yellow-600 text-sm">{disaster.preparedness}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Low Risk Disasters */}
-            <div>
-              <h2 className="text-2xl font-semibold mb-6 text-emerald-900">
-                Low-Risk Disasters
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {groupedDisasters.low.map((disaster) => (
-                  <div
-                    key={disaster.id}
-                    className={`p-6 rounded-lg ${disaster.bgColor} hover:shadow-lg transition-shadow cursor-pointer`}
-                    onClick={() => setSelectedDisaster(disaster.id)}
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <span role="img" aria-label={disaster.title} className="text-2xl">
-                        {disaster.emoji}
-                      </span>
-                      <h3 className="text-lg font-semibold">{disaster.title}</h3>
-                    </div>
-                    <p className="text-gray-700 mb-3">{disaster.description}</p>
-                    <div>
-                      <h4 className="font-medium mb-2">Preparedness:</h4>
-                      <p className="text-gray-700">{disaster.preparedness}</p>
-                    </div>
-                    <div className="mt-4">
-                      <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        LOW RISK
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Low-Risk Disasters */}
+            <div className="space-y-4">
+              <button 
+                onClick={() => setExpandedSection(expandedSection === 'low' ? null : 'low')}
+                className="w-full flex items-center justify-between bg-emerald-50 p-4 rounded-lg hover:bg-emerald-100 transition-colors"
+              >
+                <h3 className="text-xl font-semibold text-emerald-900">Low-Risk Disasters</h3>
+                <svg 
+                  className={`w-6 h-6 transform transition-transform ${expandedSection === 'low' ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {expandedSection === 'low' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {ALL_POSSIBLE_DISASTERS.map(disaster => {
+                    const riskLevel = getRiskLevel(disaster, result);
+                    if (riskLevel === 'low') {
+                      return (
+                        <div key={disaster.id} className="bg-emerald-50 p-4 rounded-lg border-l-4 border-emerald-500">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span role="img" aria-label={disaster.title} className="text-2xl">
+                              {disaster.emoji}
+                            </span>
+                            <h4 className="font-medium text-emerald-800">{disaster.title}</h4>
+                          </div>
+                          <p className="text-emerald-700 text-sm mb-3">{disaster.description}</p>
+                          <p className="text-emerald-600 text-sm">{disaster.preparedness}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -674,9 +839,12 @@ export default function AnalysisResultPage() {
                     </h3>
                     <button
                       onClick={() => setSelectedDisaster(null)}
-                      className="text-emerald-600 hover:text-emerald-700"
+                      className="text-emerald-600 hover:text-emerald-700 flex items-center gap-2"
                     >
-                      View Universal Plan
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      View All Plans
                     </button>
                   </div>
                   
@@ -700,44 +868,69 @@ export default function AnalysisResultPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <h3 className="text-xl font-semibold text-emerald-900 mb-4">Universal Action Plan</h3>
+                  <h3 className="text-xl font-semibold text-emerald-900 mb-4">Available Disaster Plans</h3>
                   <p className="text-gray-600 mb-4">
-                    {activePlanPhase === 'before'
-                      ? 'Prepare your family and home for potential emergencies'
-                      : activePlanPhase === 'during'
-                      ? 'Critical actions to take when disaster strikes'
-                      : 'Steps to take in the aftermath of a disaster'}
+                    Click on a disaster type to view its specific response plan, or view the universal action plan below.
                   </p>
-                  <div className="space-y-4">
-                    {result.actionPlans
-                      .filter(plan => 
-                        (activePlanPhase === 'before' && plan.phase === 'immediate') ||
-                        (activePlanPhase === 'during' && plan.phase === 'short-term') ||
-                        (activePlanPhase === 'after' && plan.phase === 'long-term')
-                      )
-                      .map((plan, index) => (
-                        <div key={index} className="bg-emerald-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-emerald-800 mb-2">{plan.title}</h4>
-                          <ul className="space-y-2">
-                            {plan.steps.map((step, stepIndex) => (
-                              <li key={stepIndex} className="flex items-start gap-2">
-                                <span className="text-emerald-500">•</span>
-                                <span className="text-emerald-800">{step}</span>
-                              </li>
-                            ))}
-                          </ul>
-                          {plan.resources.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-emerald-100">
-                              <h5 className="text-sm font-medium text-emerald-800 mb-2">Resources:</h5>
-                              <ul className="text-sm space-y-1">
-                                {plan.resources.map((resource, resourceIndex) => (
-                                  <li key={resourceIndex} className="text-emerald-600">{resource}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+
+                  {/* Disaster-Specific Plans */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                    {Object.keys(result.disasterResponses).map((disasterType) => {
+                      const disaster = ALL_POSSIBLE_DISASTERS.find(d => d.id === disasterType);
+                      if (!disaster) return null;
+
+                      return (
+                        <button
+                          key={disasterType}
+                          onClick={() => setSelectedDisaster(disasterType)}
+                          className={`p-4 rounded-lg ${disaster.bgColor} hover:shadow-lg transition-all text-left`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span role="img" aria-label={disaster.title} className="text-2xl">
+                              {disaster.emoji}
+                            </span>
+                            <h4 className="font-medium">{disaster.title}</h4>
+                          </div>
+                          <p className="text-sm text-gray-600">Click to view specific response plan</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Universal Action Plan */}
+                  <div className="border-t pt-6">
+                    <h4 className="font-medium text-emerald-800 mb-4">Universal Action Plan</h4>
+                    <div className="space-y-4">
+                      {result.actionPlans
+                        .filter(plan => 
+                          (activePlanPhase === 'before' && plan.phase === 'immediate') ||
+                          (activePlanPhase === 'during' && plan.phase === 'short-term') ||
+                          (activePlanPhase === 'after' && plan.phase === 'long-term')
+                        )
+                        .map((plan, index) => (
+                          <div key={index} className="bg-emerald-50 p-4 rounded-lg">
+                            <h4 className="font-medium text-emerald-800 mb-2">{plan.title}</h4>
+                            <ul className="space-y-2">
+                              {plan.steps.map((step, stepIndex) => (
+                                <li key={stepIndex} className="flex items-start gap-2">
+                                  <span className="text-emerald-500">•</span>
+                                  <span className="text-emerald-800">{step}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            {plan.resources.length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-emerald-100">
+                                <h5 className="text-sm font-medium text-emerald-800 mb-2">Resources:</h5>
+                                <ul className="text-sm space-y-1">
+                                  {plan.resources.map((resource, resourceIndex) => (
+                                    <li key={resourceIndex} className="text-emerald-600">{resource}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 </div>
               )}

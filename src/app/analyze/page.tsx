@@ -76,30 +76,58 @@ export default function AnalyzePage() {
     }, 100);
   };
 
+  const navigateToStep = (stepNumber: number) => {
+    if (stepNumber <= step || stepNumber === step + 1) {
+      setStep(stepNumber);
+    }
+  };
+
   const validateStep = () => {
     switch (step) {
       case 1:
-        return surveyData.location.trim() !== '';
+        return Boolean(surveyData.location.trim());
       case 2:
-        return surveyData.householdSize !== '' && surveyData.housingType !== '';
       case 3:
-        return true; // Checkboxes are optional
       case 4:
-        return surveyData.budget !== '' && surveyData.timeframe !== '';
+      case 5:
+        return true;
       default:
         return true;
     }
   };
 
+  function validateForm(data: FormData): boolean {
+    // Only check for location as it's the most critical required field
+    const location = data.get('location');
+    if (!location || location.toString().trim() === '') {
+      return false;
+    }
+    return true;
+  }
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    simulateProgress();
 
-    const finalData = {
-      ...surveyData,
-      customCategories
+    if (!surveyData.location.trim()) {
+      setError('Please enter your location to generate a plan');
+      setLoading(false);
+      return;
+    }
+
+    const data = {
+      location: surveyData.location.trim(),
+      householdSize: surveyData.householdSize || '1',
+      housingType: surveyData.housingType || 'apartment',
+      specialNeeds: surveyData.specialNeeds,
+      pets: surveyData.pets,
+      mobilityIssues: surveyData.mobilityIssues,
+      budget: surveyData.budget || 'medium',
+      timeframe: surveyData.timeframe || 'medium',
+      preferredLanguage: surveyData.preferredLanguage || 'en',
+      customCategories,
+      additionalNotes: surveyData.additionalNotes || ''
     };
 
     try {
@@ -108,18 +136,19 @@ export default function AnalyzePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(finalData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze location');
+        throw new Error('Analysis failed');
       }
 
       const result = await response.json();
       localStorage.setItem('analysisResult', JSON.stringify(result));
       router.push('/analysis-result');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (error) {
+      console.error('Error during analysis:', error);
+      setError('Failed to analyze data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -137,7 +166,7 @@ export default function AnalyzePage() {
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold mb-2 text-emerald-900 text-center">
-          AI-Powered Disaster Preparedness Report
+          DIZ-AI: Your Personal Disaster Preparedness Assistant
         </h1>
         <p className="text-center text-gray-600 mb-8">
           Get a personalized emergency preparedness plan based on your location and needs
@@ -147,7 +176,14 @@ export default function AnalyzePage() {
         <div className="mb-8">
           <div className="flex justify-between mb-2">
             {steps.map((s, i) => (
-              <div key={i} className={`flex flex-col items-center w-1/5 ${i < step ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <button
+                key={i}
+                onClick={() => navigateToStep(i + 1)}
+                className={`flex flex-col items-center w-1/5 ${
+                  i < step ? 'text-emerald-600' : 'text-gray-400'
+                } ${(i + 1 <= step || i + 1 === step + 1) ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed'}`}
+                disabled={i + 1 > step + 1}
+              >
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 ${
                   i + 1 === step 
                     ? 'bg-emerald-600 text-white' 
@@ -159,7 +195,7 @@ export default function AnalyzePage() {
                 </div>
                 <div className="text-sm font-medium text-center">{s.title}</div>
                 <div className="text-xs text-center">{s.description}</div>
-              </div>
+              </button>
             ))}
           </div>
           <div className="relative pt-1">
@@ -491,7 +527,7 @@ export default function AnalyzePage() {
             {step > 1 && (
               <button
                 type="button"
-                onClick={() => setStep(step - 1)}
+                onClick={() => navigateToStep(step - 1)}
                 className="px-6 py-2 text-emerald-600 hover:text-emerald-700"
               >
                 Back
@@ -500,7 +536,7 @@ export default function AnalyzePage() {
             {step < steps.length ? (
               <button
                 type="button"
-                onClick={() => validateStep() && setStep(step + 1)}
+                onClick={() => validateStep() && navigateToStep(step + 1)}
                 disabled={!validateStep()}
                 className={`ml-auto px-6 py-3 rounded-lg text-white font-medium transition-all
                   ${!validateStep()

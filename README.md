@@ -1,6 +1,115 @@
-# GoPrep: AI-Powered Disaster Preparedness Platform
+# DIZ-AI: AI-Powered Disaster Preparedness Platform
 
-GoPrep is an intelligent emergency preparedness platform that combines the power of AI with location-specific data to create personalized disaster readiness plans. Our mission is to make disaster preparedness accessible, personalized, and actionable for everyone.
+DIZ-AI is an intelligent emergency preparedness platform that provides personalized disaster readiness plans based on your location, household composition, and specific needs.
+
+## Features
+
+### Location-Based Analysis
+- Geocoding with OpenCage API for precise location data
+- Real-time weather conditions via OpenWeather API
+- Comprehensive location analysis using Wolfram Alpha API
+- Risk assessment for multiple disaster types
+
+### Personalized Emergency Planning
+- Custom emergency kit recommendations with shopping links
+- Disaster-specific action plans (Before, During, After)
+- Specialized recommendations based on household needs
+- Budget-conscious supply lists with estimated costs
+
+### Interactive Survey
+- Multi-step form with progress tracking
+- Household information collection
+- Special needs accommodation
+- Custom category creation
+- Implementation timeline planning
+
+### Comprehensive Results
+- Summary dashboard with top risks
+- Categorized emergency supplies checklist
+- Detailed disaster response plans
+- Universal and disaster-specific action steps
+- Emergency contact information
+- Printable report generation
+
+### Resource Center
+- Emergency contact directory
+- Links to official disaster preparedness websites
+- Local emergency service information
+
+## Technical Stack
+
+- **Frontend**: Next.js 14 with App Router
+- **Styling**: Tailwind CSS
+- **APIs**:
+  - OpenCage (Geocoding)
+  - OpenWeather (Weather Data)
+  - Wolfram Alpha (Location Analysis)
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create a `.env.local` file with your API keys:
+```env
+OPENCAGE_API_KEY=your_key_here
+OPENWEATHER_API_KEY=your_key_here
+WOLFRAM_APP_ID=your_key_here
+```
+
+4. Run the development server:
+```bash
+npm run dev
+```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── analyze/            # Survey form page
+│   ├── analysis-result/    # Results display page
+│   ├── resources/          # Resource directory
+│   └── api/
+│       └── analyze/        # Analysis endpoint
+├── lib/
+│   ├── geocoding.ts       # OpenCage API integration
+│   ├── weather.ts         # OpenWeather API integration
+│   └── wolfram.ts         # Wolfram Alpha API integration
+```
+
+## API Integrations
+
+### OpenCage Geocoding
+- Location validation and coordinates
+- City, state, and postal code extraction
+
+### OpenWeather
+- Current weather conditions
+- Temperature and humidity data
+- Precipitation information
+
+### Wolfram Alpha
+- Geographical data analysis
+- Natural disaster risk assessment
+- Local emergency services information
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🎯 Mission
 

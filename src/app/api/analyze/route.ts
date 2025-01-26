@@ -92,6 +92,16 @@ function determineDisasterRisk(location: any, weatherData: any, wolframData: any
   return risks;
 }
 
+interface DisasterPlan {
+  beforeSteps: string[];
+  duringSteps: string[];
+  afterSteps: string[];
+}
+
+interface UniversalPlans {
+  [key: string]: DisasterPlan;
+}
+
 function generateEmergencySupplies(risks: string[], householdSize: number, pets: boolean, specialNeeds: boolean, budget: string) {
   const supplies = [
     {
@@ -210,37 +220,245 @@ function generateEmergencySupplies(risks: string[], householdSize: number, pets:
 }
 
 function generateDisasterResponses(risks: string[], householdSize: number, pets: boolean) {
-  const responses: Record<string, any> = {};
+  const responses: Record<string, DisasterPlan> = {};
   
-  risks.forEach(risk => {
-    switch (risk) {
-      case 'earthquake':
-        responses[risk] = {
-          beforeSteps: [
-            'Secure heavy furniture and appliances to walls',
-            'Install latches on cabinets',
-            'Learn how to shut off gas, water, and electricity',
-            'Create a family communication plan',
-            'Practice "Drop, Cover, and Hold On" drills'
-          ],
-          duringSteps: [
-            'Drop to the ground',
-            'Take cover under a sturdy desk or table',
-            'Hold on until the shaking stops',
-            'Stay away from windows and exterior walls',
-            'If in bed, stay there and protect your head with a pillow'
-          ],
-          afterSteps: [
-            'Check for injuries and provide first aid',
-            'Listen to news for emergency information',
-            'Check for gas leaks and damage',
-            'Be prepared for aftershocks',
-            'Document damage for insurance'
-          ]
-        };
-        break;
-      // Add cases for other disaster types
+  // Define universal plans for all disaster types
+  const universalPlans: UniversalPlans = {
+    earthquake: {
+      beforeSteps: [
+        'Secure heavy furniture and appliances to walls',
+        'Install latches on cabinets',
+        'Learn how to shut off gas, water, and electricity',
+        'Create a family communication plan',
+        'Practice "Drop, Cover, and Hold On" drills'
+      ],
+      duringSteps: [
+        'Drop to the ground',
+        'Take cover under a sturdy desk or table',
+        'Hold on until the shaking stops',
+        'Stay away from windows and exterior walls',
+        'If in bed, stay there and protect your head with a pillow'
+      ],
+      afterSteps: [
+        'Check for injuries and provide first aid',
+        'Listen to news for emergency information',
+        'Check for gas leaks and damage',
+        'Be prepared for aftershocks',
+        'Document damage for insurance'
+      ]
+    },
+    wildfire: {
+      beforeSteps: [
+        'Create defensible space around your home',
+        'Clear leaves and debris from gutters',
+        'Install ember-resistant vents',
+        'Prepare emergency supply kit',
+        'Plan multiple evacuation routes'
+      ],
+      duringSteps: [
+        'Follow evacuation orders immediately',
+        'Close all windows and doors',
+        'Remove flammable window coverings',
+        'Turn on exterior lights for visibility',
+        'Keep emergency supplies accessible'
+      ],
+      afterSteps: [
+        'Wait for official notice before returning home',
+        'Document damage with photos',
+        'Check roof and exterior for embers',
+        'Monitor local news for updates',
+        'Contact insurance company if needed'
+      ]
+    },
+    flood: {
+      beforeSteps: [
+        'Elevate electrical components',
+        'Install check valves in plumbing',
+        'Waterproof basement walls',
+        'Create emergency supply kit',
+        'Know evacuation routes to higher ground'
+      ],
+      duringSteps: [
+        'Move to higher ground immediately',
+        'Avoid walking through flood waters',
+        'Do not drive through flooded areas',
+        'Listen to emergency instructions',
+        'Keep emergency supplies accessible'
+      ],
+      afterSteps: [
+        'Avoid flood waters',
+        'Document damage with photos',
+        'Clean and disinfect everything that got wet',
+        'Watch for updates from authorities',
+        'Begin cleanup when safe'
+      ]
+    },
+    winter: {
+      beforeSteps: [
+        'Insulate pipes and allow faucets to drip',
+        'Service heating equipment',
+        'Install weather stripping',
+        'Stock up on winter supplies',
+        'Prepare emergency car kit'
+      ],
+      duringSteps: [
+        'Stay indoors if possible',
+        'Keep dry and in warm layers',
+        'Avoid overexertion when shoveling',
+        'Watch for signs of hypothermia',
+        'Use generators outdoors only'
+      ],
+      afterSteps: [
+        'Check on neighbors',
+        'Clear snow from vents and pipes',
+        'Remove snow from roof if safe',
+        'Document any damage',
+        'Watch for downed power lines'
+      ]
+    },
+    hurricane: {
+      beforeSteps: [
+        'Board up windows and secure outdoor items',
+        'Fill vehicles with gas',
+        'Stock up on non-perishable food',
+        'Prepare emergency supply kit',
+        'Know your evacuation route'
+      ],
+      duringSteps: [
+        'Stay inside away from windows',
+        'Monitor emergency broadcasts',
+        'Keep emergency supplies accessible',
+        'Fill bathtubs and containers with water',
+        'Stay in small interior room on lowest floor'
+      ],
+      afterSteps: [
+        'Stay inside until all-clear',
+        'Watch for downed power lines',
+        'Document damage with photos',
+        'Check on neighbors if safe',
+        'Begin cleanup when authorities permit'
+      ]
+    },
+    tornado: {
+      beforeSteps: [
+        'Identify safe room or basement',
+        'Practice tornado drills',
+        'Create emergency supply kit',
+        'Install storm shutters',
+        'Secure outdoor items'
+      ],
+      duringSteps: [
+        'Go to basement or safe room',
+        'Stay away from windows',
+        'Get under sturdy protection',
+        'Put on helmets if available',
+        'Listen to weather radio'
+      ],
+      afterSteps: [
+        'Stay in shelter until all-clear',
+        'Watch for downed power lines',
+        'Document damage with photos',
+        'Help injured or trapped people',
+        'Begin cleanup when safe'
+      ]
+    },
+    drought: {
+      beforeSteps: [
+        'Install water-efficient fixtures',
+        'Fix leaky plumbing',
+        'Create drought-resistant landscaping',
+        'Store emergency water supply',
+        'Know water restriction guidelines'
+      ],
+      duringSteps: [
+        'Follow water conservation rules',
+        'Minimize water usage',
+        'Reuse greywater when possible',
+        'Monitor plants for stress',
+        'Avoid new landscaping projects'
+      ],
+      afterSteps: [
+        'Maintain water conservation habits',
+        'Assess landscape damage',
+        'Plan for future drought resistance',
+        'Document losses if applicable',
+        'Review water management plan'
+      ]
+    },
+    heatwave: {
+      beforeSteps: [
+        'Install window air conditioners snugly',
+        'Check air conditioning ducts',
+        'Install temporary window reflectors',
+        'Stock up on water and fluids',
+        'Create a cool room in your home'
+      ],
+      duringSteps: [
+        'Stay indoors in air conditioning',
+        'Drink plenty of fluids',
+        'Avoid strenuous activities',
+        'Check on vulnerable neighbors',
+        'Never leave people or pets in cars'
+      ],
+      afterSteps: [
+        'Continue hydration',
+        'Monitor for heat-related illness',
+        'Help others who may need assistance',
+        'Review emergency plans',
+        'Prepare for future heat events'
+      ]
+    },
+    tsunami: {
+      beforeSteps: [
+        'Know evacuation routes to high ground',
+        'Create emergency supply kit',
+        'Practice evacuation plan',
+        'Learn warning signs',
+        'Store important documents high up'
+      ],
+      duringSteps: [
+        'Move inland and to high ground immediately',
+        'Follow evacuation orders',
+        'Take emergency supplies',
+        'Stay away from coast',
+        'Listen to emergency broadcasts'
+      ],
+      afterSteps: [
+        'Stay away until all-clear',
+        'Watch for additional waves',
+        'Avoid flood waters',
+        'Document damage',
+        'Begin cleanup when safe'
+      ]
+    },
+    landslide: {
+      beforeSteps: [
+        'Install flexible pipe fittings',
+        'Create proper drainage',
+        'Plant ground cover on slopes',
+        'Learn warning signs',
+        'Plan evacuation routes'
+      ],
+      duringSteps: [
+        'Listen for unusual sounds',
+        'Evacuate immediately if safe',
+        'Watch for flooding',
+        'Alert neighbors if possible',
+        'Take emergency supplies'
+      ],
+      afterSteps: [
+        'Stay away from slide area',
+        'Check for injured people',
+        'Report broken utilities',
+        'Document damage',
+        'Watch for additional slides'
+      ]
     }
+  };
+
+  // Add universal plans for all potential disasters
+  Object.keys(universalPlans).forEach(disasterType => {
+    responses[disasterType] = universalPlans[disasterType];
   });
   
   return responses;
