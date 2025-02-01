@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface DisasterType {
   id: string;
@@ -125,6 +125,16 @@ interface WeatherData {
   humidity: number;
 }
 
+interface DisasterCard {
+  id: string;
+  title: string;
+  emoji: string;
+  description: string;
+  bgColor: string;
+  risk: 'high' | 'medium' | 'low';
+  explanation: string;
+}
+
 interface EnhancedAnalysisResult extends AnalysisResult {
   location: Location;
   wolframData: WolframData;
@@ -136,6 +146,11 @@ interface EnhancedAnalysisResult extends AnalysisResult {
     recommendations: string[];
     priority: 'high' | 'medium' | 'low';
   }[];
+  disasterCards: {
+    high: DisasterCard[];
+    medium: DisasterCard[];
+    low: DisasterCard[];
+  };
 }
 
 const ALL_POSSIBLE_DISASTERS: DisasterType[] = [
@@ -308,29 +323,32 @@ export default function AnalysisResultPage() {
   useEffect(() => {
     try {
       const storedResult = localStorage.getItem('analysisResult');
-      if (!storedResult) {
-        setError('No analysis result found. Please complete the survey first.');
-        setLoading(false);
-        return;
+      if (storedResult) {
+        const parsedResult = JSON.parse(storedResult);
+        console.log('Parsed result:', parsedResult);
+        console.log('Disaster cards:', parsedResult.disasterCards);
+        console.log('Risk explanations:', parsedResult.riskExplanations);
+        setResult(parsedResult);
       }
-
-      const parsedResult = JSON.parse(storedResult);
-      
-      // Validate location data
-      if (!parsedResult.location || !parsedResult.location.formatted_address) {
-        setError('Invalid location data. Please try again with a valid location.');
-        setLoading(false);
-        return;
-      }
-
-      setResult(parsedResult);
     } catch (error) {
-      console.error('Error loading analysis result:', error);
-      setError('Failed to load analysis result. Please try again.');
-    } finally {
-      setLoading(false);
+      console.error('Error:', error);
     }
+    setLoading(false);
   }, []);
+
+  // Debug useEffect
+  useEffect(() => {
+    if (result) {
+      console.log('Current result:', result);
+    }
+  }, [result]);
+
+  useEffect(() => {
+    if (expandedSection && result) {
+      console.log('DisasterCards:', result.disasterCards);
+      console.log('Expanded section:', expandedSection);
+    }
+  }, [expandedSection, result]);
 
   if (loading) {
     return (
@@ -686,24 +704,18 @@ export default function AnalysisResultPage() {
               
               {expandedSection === 'high' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {ALL_POSSIBLE_DISASTERS.map(disaster => {
-                    const riskLevel = getRiskLevel(disaster, result);
-                    if (riskLevel === 'high') {
-                      return (
-                        <div key={disaster.id} className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span role="img" aria-label={disaster.title} className="text-2xl">
-                              {disaster.emoji}
-                            </span>
-                            <h4 className="font-medium text-red-800">{disaster.title}</h4>
-                          </div>
-                          <p className="text-red-700 text-sm mb-3">{disaster.description}</p>
-                          <p className="text-red-600 text-sm">{disaster.preparedness}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                  {(result.disasterCards?.high ?? []).map(disaster => (
+                    <div key={disaster.id} className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span role="img" aria-label={disaster.title} className="text-2xl">
+                          {disaster.emoji}
+                        </span>
+                        <h4 className="font-medium text-red-800">{disaster.title}</h4>
+                      </div>
+                      <p className="text-red-700 text-sm mb-3">{disaster.description}</p>
+                      <p className="text-red-600 text-sm">{disaster.explanation}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -727,24 +739,18 @@ export default function AnalysisResultPage() {
               
               {expandedSection === 'medium' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {ALL_POSSIBLE_DISASTERS.map(disaster => {
-                    const riskLevel = getRiskLevel(disaster, result);
-                    if (riskLevel === 'medium') {
-                      return (
-                        <div key={disaster.id} className="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span role="img" aria-label={disaster.title} className="text-2xl">
-                              {disaster.emoji}
-                            </span>
-                            <h4 className="font-medium text-yellow-800">{disaster.title}</h4>
-                          </div>
-                          <p className="text-yellow-700 text-sm mb-3">{disaster.description}</p>
-                          <p className="text-yellow-600 text-sm">{disaster.preparedness}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                  {(result.disasterCards?.medium ?? []).map(disaster => (
+                    <div key={disaster.id} className="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span role="img" aria-label={disaster.title} className="text-2xl">
+                          {disaster.emoji}
+                        </span>
+                        <h4 className="font-medium text-yellow-800">{disaster.title}</h4>
+                      </div>
+                      <p className="text-yellow-700 text-sm mb-3">{disaster.description}</p>
+                      <p className="text-yellow-600 text-sm">{disaster.explanation}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -768,24 +774,18 @@ export default function AnalysisResultPage() {
               
               {expandedSection === 'low' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {ALL_POSSIBLE_DISASTERS.map(disaster => {
-                    const riskLevel = getRiskLevel(disaster, result);
-                    if (riskLevel === 'low') {
-                      return (
-                        <div key={disaster.id} className="bg-emerald-50 p-4 rounded-lg border-l-4 border-emerald-500">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span role="img" aria-label={disaster.title} className="text-2xl">
-                              {disaster.emoji}
-                            </span>
-                            <h4 className="font-medium text-emerald-800">{disaster.title}</h4>
-                          </div>
-                          <p className="text-emerald-700 text-sm mb-3">{disaster.description}</p>
-                          <p className="text-emerald-600 text-sm">{disaster.preparedness}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                  {(result.disasterCards?.low ?? []).map(disaster => (
+                    <div key={disaster.id} className="bg-emerald-50 p-4 rounded-lg border-l-4 border-emerald-500">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span role="img" aria-label={disaster.title} className="text-2xl">
+                          {disaster.emoji}
+                        </span>
+                        <h4 className="font-medium text-emerald-800">{disaster.title}</h4>
+                      </div>
+                      <p className="text-emerald-700 text-sm mb-3">{disaster.description}</p>
+                      <p className="text-emerald-600 text-sm">{disaster.explanation}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
