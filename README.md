@@ -4,7 +4,7 @@ An AI-powered emergency preparedness application that provides personalized disa
 
 ## Features
 
-- Location-based disaster risk analysis
+- Location-based disaster risk analysis using Wolfram Alpha for environmental data
 - Customized emergency preparation plans
 - Interactive disaster type information
 - Emergency kit recommendations with shopping links
@@ -26,8 +26,9 @@ An AI-powered emergency preparedness application that provides personalized disa
 - Tailwind CSS
 
 ### APIs/Services
-- OpenAI API
-- Anthropic API
+- Wolfram Alpha API (for environmental and geographical analysis)
+- OpenAI API (for risk analysis and recommendations)
+- Anthropic API (for alternative AI processing)
 - Replicate API (Stable Diffusion)
 - Deepgram API
 - Firebase
@@ -55,10 +56,16 @@ npm install
 3. Set up environment variables:
 Create a `.env.local` file with the following variables:
 ```env
+# AI Services
 OPENAI_API_KEY=your_key_here
 ANTHROPIC_API_KEY=your_key_here
 REPLICATE_API_TOKEN=your_key_here
 DEEPGRAM_API_KEY=your_key_here
+
+# Wolfram Alpha
+WOLFRAM_APP_ID=your_app_id_here
+
+# Firebase Configuration
 FIREBASE_API_KEY=your_key_here
 FIREBASE_AUTH_DOMAIN=your_domain_here
 FIREBASE_PROJECT_ID=your_project_id_here
@@ -79,6 +86,7 @@ npm run dev
 - `/src/app` - Next.js App Router pages and API routes
 - `/src/app/components` - React components
 - `/src/app/lib` - Utility functions, hooks, and contexts
+  - `/src/app/lib/wolfram` - Wolfram Alpha API integration
 - `/src/app/api` - API route handlers
 
 ## Contributing
@@ -114,6 +122,10 @@ To leverage artificial intelligence and data analytics to:
 - **Frontend**: Next.js 14, React, TailwindCSS
 - **AI/ML**: 
   - Wolfram Alpha API for environmental and geographical analysis
+    - Location elevation data
+    - Seismic activity analysis
+    - Weather patterns
+    - Geographical risk factors
   - Large Language Models for personalized recommendations
 - **Data Visualization**: Dynamic risk assessment displays
 - **Backend**: Next.js API routes with TypeScript
